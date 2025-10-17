@@ -378,6 +378,34 @@
         color: #dc2626;
         font-weight: 600;
       }
+      footer {
+        display: grid;
+        gap: 12px;
+        padding-top: 28px;
+        border-top: 1px solid rgba(148, 163, 184, 0.35);
+        font-size: 0.9rem;
+        color: rgba(71, 85, 105, 0.85);
+      }
+      footer .company-data {
+        display: grid;
+        gap: 6px;
+      }
+      footer strong {
+        color: #0f172a;
+      }
+      .footer-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+      .footer-links a {
+        color: #2563eb;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .footer-links a:hover {
+        text-decoration: underline;
+      }
     </style>
   </head>
   <body
@@ -558,6 +586,21 @@
       </form>
 
       <section id="result" class="result hidden"></section>
+
+      <footer>
+        <div class="company-data">
+          <strong>Itc Wojciech Nawracała</strong>
+          <span>UL. KAMIENNA 10928, 50-547 Wrocław, woj. dolnośląskie</span>
+          <span>NIP: 9291772633 &bull; REGON: 02228614300000</span>
+          <span>E-mail: <a href="mailto:konto@itcwn.pl">konto@itcwn.pl</a></span>
+        </div>
+        <div class="footer-links">
+          <a href="polityka-prywatnosci.html">Polityka prywatności</a>
+          <a href="regulamin.html">Regulamin serwisu</a>
+          <a href="#orderForm">Formularz zamówienia</a>
+        </div>
+        <span>&copy; 2024 Itc Wojciech Nawracała. Wszystkie prawa zastrzeżone.</span>
+      </footer>
     </div>
 
     <script>
