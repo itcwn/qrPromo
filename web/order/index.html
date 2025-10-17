@@ -99,6 +99,49 @@
         font-size: 0.97rem;
         color: rgba(51, 65, 85, 0.8);
       }
+      .validity-note {
+        font-weight: 600;
+        color: #1d4ed8;
+      }
+      .extension-calculator {
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(129, 140, 248, 0.35);
+        padding: 20px;
+        display: grid;
+        gap: 12px;
+      }
+      .extension-calculator h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        color: #0f172a;
+      }
+      .extension-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .extension-controls button {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        font-size: 1.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #c7d2fe, #bfdbfe);
+        color: #1e3a8a;
+        box-shadow: 0 10px 18px rgba(79, 70, 229, 0.15);
+      }
+      .extension-controls button:disabled {
+        background: rgba(191, 219, 254, 0.6);
+        color: rgba(30, 58, 138, 0.4);
+        box-shadow: none;
+      }
+      .extension-summary {
+        margin: 0;
+        font-size: 0.95rem;
+        color: rgba(51, 65, 85, 0.92);
+        line-height: 1.6;
+      }
       .promo-actions {
         display: flex;
         flex-wrap: wrap;
@@ -382,6 +425,22 @@
         <p class="price-note">
           W cenie otrzymujesz konfigurację promocji, materiały z kodami QR w formacie PNG oraz krótką instrukcję publikacji.
         </p>
+        <p class="price-note validity-note">Kody QR są ważne 49 dni od startu kampanii.</p>
+        <div class="extension-calculator" aria-live="polite">
+          <h3>Przedłuż ważność kodów QR</h3>
+          <p class="price-note">
+            Każdy PLUS dodaje 15 dni ważności i kosztuje 0,75 zł. Dopasuj liczbę PLUS-ów do potrzeb swojej kampanii.
+          </p>
+          <div class="extension-controls">
+            <button type="button" id="extensionMinus" aria-label="Usuń PLUS">−</button>
+            <strong id="extensionCount">0</strong>
+            <button type="button" id="extensionPlus" aria-label="Dodaj PLUS">+</button>
+          </div>
+          <p class="extension-summary" id="extensionSummary">
+            Dodatkowy czas: <span id="extraDays">0</span> dni · Dopłata: <span id="extraCost">0,00 zł</span><br />
+            Łączna ważność: <span id="totalValidity">49</span> dni · Łączna cena: <span id="totalPrice">9,99 zł</span>
+          </p>
+        </div>
         <div class="promo-actions">
           <button type="button" class="secondary" id="promoButton">
             Zweryfikuj polubienie profilu na Facebooku – odbierz cenę 4,99 zł
@@ -395,6 +454,7 @@
       </section>
 
       <form id="orderForm">
+        <input type="hidden" name="extensionUnits" id="extensionUnits" value="0" />
         <ol class="steps-indicator">
           <li class="active"><span>1</span>Dane kontaktowe</li>
           <li><span>2</span>Parametry kampanii</li>
@@ -527,6 +587,14 @@
       const priceNote = document.getElementById("priceNote");
       const promoButton = document.getElementById("promoButton");
       const promoFeedback = document.getElementById("promoFeedback");
+      const extensionMinus = document.getElementById("extensionMinus");
+      const extensionPlus = document.getElementById("extensionPlus");
+      const extensionCountDisplay = document.getElementById("extensionCount");
+      const extensionUnitsInput = document.getElementById("extensionUnits");
+      const extraDaysDisplay = document.getElementById("extraDays");
+      const extraCostDisplay = document.getElementById("extraCost");
+      const totalValidityDisplay = document.getElementById("totalValidity");
+      const totalPriceDisplay = document.getElementById("totalPrice");
       const fbAppId = document.body.dataset.fbAppId;
       const fbPageId = document.body.dataset.fbPageId;
       const fbLocale = document.body.dataset.fbLocale || "pl_PL";
@@ -538,9 +606,49 @@
 
       const API_ENDPOINT = document.body.dataset.endpoint;
       let currentStep = 0;
-      let currentPrice = 9.99;
+      const BASE_VALIDITY_DAYS = 49;
+      const EXTENSION_DAYS = 15;
+      const EXTENSION_COST = 0.75;
+      const STANDARD_PRICE = 9.99;
+      const PROMO_PRICE = 4.99;
+      let currentPrice = STANDARD_PRICE;
       let promoActive = false;
+      let extensionUnits = 0;
       let facebookSdkPromise = null;
+
+      function formatPrice(value) {
+        return value.toFixed(2).replace(".", ",") + " zł";
+      }
+
+      function calculateTotalPrice() {
+        return (promoActive ? PROMO_PRICE : STANDARD_PRICE) + extensionUnits * EXTENSION_COST;
+      }
+
+      function calculateTotalValidity() {
+        return BASE_VALIDITY_DAYS + extensionUnits * EXTENSION_DAYS;
+      }
+
+      function updatePricingDisplays() {
+        const totalPriceNumber = Number(calculateTotalPrice().toFixed(2));
+        currentPrice = totalPriceNumber;
+        priceValue.textContent = formatPrice(totalPriceNumber);
+        totalPriceDisplay.textContent = formatPrice(totalPriceNumber);
+        priceNote.textContent = promoActive
+          ? "po potwierdzeniu polubienia naszego profilu"
+          : "za przygotowanie kampanii";
+      }
+
+      function updateExtensionDisplays() {
+        extensionCountDisplay.textContent = String(extensionUnits);
+        const extraDays = extensionUnits * EXTENSION_DAYS;
+        const extraCostNumber = Number((extensionUnits * EXTENSION_COST).toFixed(2));
+        extraDaysDisplay.textContent = String(extraDays);
+        extraCostDisplay.textContent = formatPrice(extraCostNumber);
+        totalValidityDisplay.textContent = String(calculateTotalValidity());
+        extensionUnitsInput.value = String(extensionUnits);
+        extensionMinus.disabled = extensionUnits === 0;
+        updatePricingDisplays();
+      }
 
       function setPromoFeedback(message, variant = "info") {
         if (!promoFeedback) return;
@@ -549,9 +657,7 @@
 
       function activatePromo() {
         promoActive = true;
-        currentPrice = 4.99;
-        priceValue.textContent = "4,99 zł";
-        priceNote.textContent = "po potwierdzeniu polubienia naszego profilu";
+        updatePricingDisplays();
         promoButton.disabled = true;
         promoButton.textContent = "Polubienie potwierdzone – rabat aktywny";
         if (currentStep === steps.length - 1) {
@@ -717,6 +823,9 @@
 
       function populateSummary() {
         const formData = new FormData(form);
+        const extensionUnitsValue = Number(formData.get("extensionUnits") || "0");
+        const extensionCostValue = Number((extensionUnitsValue * EXTENSION_COST).toFixed(2));
+        const totalValidity = BASE_VALIDITY_DAYS + extensionUnitsValue * EXTENSION_DAYS;
         const map = [
           { label: "Osoba kontaktowa", value: formData.get("contactName") },
           { label: "E-mail", value: formData.get("email") },
@@ -747,15 +856,26 @@
                 ? formData.get("invoiceDetails") || "Zostaną uzupełnione później"
                 : "—",
           },
+          {
+            label: "Dodatkowe PLUS-y",
+            value:
+              extensionUnitsValue > 0
+                ? `${extensionUnitsValue} ( +${extensionUnitsValue * EXTENSION_DAYS} dni, dopłata ${formatPrice(extensionCostValue)})`
+                : "0",
+          },
+          { label: "Łączna ważność kodów", value: `${totalValidity} dni` },
         ];
 
         summaryList.innerHTML = map
           .map((item) => `\n              <dt>${item.label}</dt>\n              <dd>${item.value || "—"}</dd>\n            `)
           .join("");
 
-        summaryPriceNote.textContent = promoActive
-          ? "Cena po rabacie Facebook: 4,99 zł"
-          : "Cena standardowa: 9,99 zł";
+        const basePriceLabel = promoActive
+          ? `Cena bazowa po rabacie Facebook: ${formatPrice(PROMO_PRICE)}`
+          : `Cena bazowa: ${formatPrice(STANDARD_PRICE)}`;
+        const extensionLabel =
+          extensionUnitsValue > 0 ? `, dopłata za PLUS-y: ${formatPrice(extensionCostValue)}` : "";
+        summaryPriceNote.textContent = `Łączna cena do zapłaty: ${formatPrice(currentPrice)} (${basePriceLabel}${extensionLabel})`;
       }
 
       function goToStep(index) {
@@ -833,6 +953,7 @@
         resultBox.innerHTML = "";
 
         const formData = new FormData(form);
+        const extensionUnitsValue = Number(formData.get("extensionUnits") || "0");
         const payload = {
           email: formData.get("email"),
           contactName: formData.get("contactName"),
@@ -846,7 +967,13 @@
           invoiceRequested: formData.get("invoice") === "on",
           invoiceDetails: formData.get("invoiceDetails") || undefined,
           notes: formData.get("notes") || undefined,
-          price: currentPrice,
+          price: Number(currentPrice.toFixed(2)),
+          extension: {
+            units: extensionUnitsValue,
+            extraDays: extensionUnitsValue * EXTENSION_DAYS,
+            extraCost: Number((extensionUnitsValue * EXTENSION_COST).toFixed(2)),
+            totalValidityDays: BASE_VALIDITY_DAYS + extensionUnitsValue * EXTENSION_DAYS,
+          },
           payment: {
             method: "blik",
             code: blikCode.value.trim(),
@@ -891,6 +1018,25 @@
 
       form.addEventListener("submit", submitOrder);
 
+      extensionPlus.addEventListener("click", () => {
+        extensionUnits += 1;
+        updateExtensionDisplays();
+        if (currentStep === steps.length - 1) {
+          populateSummary();
+        }
+      });
+
+      extensionMinus.addEventListener("click", () => {
+        if (extensionUnits === 0) {
+          return;
+        }
+        extensionUnits -= 1;
+        updateExtensionDisplays();
+        if (currentStep === steps.length - 1) {
+          populateSummary();
+        }
+      });
+
       toggleFields(promotionType.value);
       updateSteps();
       if (hasFacebookConfig) {
@@ -903,6 +1049,7 @@
           "error"
         );
       }
+      updateExtensionDisplays();
     </script>
   </body>
 </html>
