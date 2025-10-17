@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Zamów swoje kampanie QR</title>
+    <style>
+      :root {
+        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #1f2937;
+        background-color: #f5f7fb;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at 10% 10%, rgba(99, 102, 241, 0.12), transparent 60%),
+          radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.18), transparent 55%), #f5f7fb;
+        color: inherit;
+        display: flex;
+        justify-content: center;
+        padding: clamp(24px, 4vw, 64px) 16px 72px;
+      }
+      .container {
+        width: min(1100px, 100%);
+        background: #ffffff;
+        border-radius: 28px;
+        padding: clamp(24px, 5vw, 56px);
+        box-shadow: 0 45px 90px rgba(15, 23, 42, 0.08);
+        display: grid;
+        gap: clamp(28px, 4vw, 48px);
+      }
+      header {
+        display: grid;
+        gap: 20px;
+      }
+      .logo-slot {
+        width: 180px;
+        height: 60px;
+        border-radius: 16px;
+        border: 2px dashed rgba(148, 163, 184, 0.6);
+        display: grid;
+        place-items: center;
+        font-weight: 600;
+        color: rgba(100, 116, 139, 0.9);
+        background: rgba(248, 250, 252, 0.9);
+      }
+      header h1 {
+        margin: 0;
+        font-size: clamp(2.1rem, 4vw, 3rem);
+        color: #0f172a;
+      }
+      header p {
+        margin: 0;
+        line-height: 1.7;
+        font-size: 1.08rem;
+        color: rgba(71, 85, 105, 0.95);
+      }
+      .features {
+        display: grid;
+        gap: 16px;
+      }
+      .feature {
+        border-radius: 18px;
+        background: linear-gradient(135deg, rgba(219, 234, 254, 0.5), rgba(244, 244, 255, 0.65));
+        padding: 24px;
+        border: 1px solid rgba(99, 102, 241, 0.12);
+      }
+      .feature h3 {
+        margin: 0 0 8px;
+        font-size: 1.2rem;
+        color: #1d4ed8;
+      }
+      .feature p {
+        margin: 0;
+        color: rgba(71, 85, 105, 0.9);
+        line-height: 1.6;
+      }
+      .price-box {
+        background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(129, 140, 248, 0.2));
+        border-radius: 24px;
+        padding: 28px;
+        display: grid;
+        gap: 12px;
+        border: 1px solid rgba(129, 140, 248, 0.35);
+      }
+      .price-main {
+        font-size: clamp(2.4rem, 5vw, 3rem);
+        font-weight: 800;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 12px;
+        color: #0f172a;
+      }
+      .price-note {
+        font-size: 0.97rem;
+        color: rgba(51, 65, 85, 0.8);
+      }
+      .promo-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 8px;
+      }
+      button {
+        border: none;
+        border-radius: 9999px;
+        padding: 12px 24px;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.2s ease;
+      }
+      button.primary {
+        background: linear-gradient(135deg, #60a5fa, #38bdf8);
+        color: #0f172a;
+        box-shadow: 0 20px 40px rgba(56, 189, 248, 0.35);
+      }
+      button.secondary {
+        background: #ffffff;
+        color: #2563eb;
+        border: 1px solid rgba(37, 99, 235, 0.35);
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+      }
+      button:hover:not(:disabled) {
+        transform: translateY(-1px);
+      }
+      form {
+        display: grid;
+        gap: 24px;
+      }
+      .steps-indicator {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      }
+      .steps-indicator li {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: rgba(248, 250, 252, 0.9);
+        color: rgba(71, 85, 105, 0.8);
+        font-weight: 600;
+      }
+      .steps-indicator li.active {
+        border-color: rgba(37, 99, 235, 0.6);
+        background: rgba(219, 234, 254, 0.8);
+        color: #1d4ed8;
+      }
+      .steps-indicator span {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: rgba(37, 99, 235, 0.12);
+        color: #2563eb;
+        font-weight: 700;
+      }
+      .step {
+        display: none;
+        gap: 20px;
+        border-radius: 20px;
+        padding: clamp(20px, 4vw, 32px);
+        background: rgba(248, 250, 252, 0.8);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+      }
+      .step.active {
+        display: grid;
+      }
+      .row {
+        display: grid;
+        gap: 18px;
+      }
+      @media (min-width: 760px) {
+        .row.two {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      label {
+        display: grid;
+        gap: 8px;
+        font-weight: 600;
+        color: #1f2937;
+      }
+      input,
+      select,
+      textarea {
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.6);
+        padding: 12px 14px;
+        font: inherit;
+        color: inherit;
+        background: #ffffff;
+      }
+      textarea {
+        resize: vertical;
+        min-height: 120px;
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        border-color: rgba(37, 99, 235, 0.75);
+        box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+      }
+      .note {
+        font-size: 0.9rem;
+        color: rgba(100, 116, 139, 0.9);
+      }
+      .checkbox {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px 18px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid rgba(148, 163, 184, 0.4);
+      }
+      .checkbox input[type="checkbox"] {
+        margin-top: 4px;
+        width: 20px;
+        height: 20px;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .actions {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .actions .spacer {
+        flex: 1;
+      }
+      .summary-card {
+        background: #ffffff;
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        padding: 20px;
+        display: grid;
+        gap: 12px;
+      }
+      .summary-card dl {
+        margin: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px 24px;
+      }
+      .summary-card dt {
+        font-weight: 600;
+        color: #1f2937;
+      }
+      .summary-card dd {
+        margin: 0;
+        color: rgba(71, 85, 105, 0.9);
+      }
+      .payment-module {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(221, 242, 255, 0.9));
+        border-radius: 20px;
+        border: 1px solid rgba(56, 189, 248, 0.35);
+        padding: 24px;
+        display: grid;
+        gap: 16px;
+      }
+      .payment-module h3 {
+        margin: 0;
+        font-size: 1.35rem;
+        color: #0f172a;
+      }
+      .payment-module .blik-field {
+        display: grid;
+        gap: 8px;
+        max-width: 260px;
+      }
+      .payment-module input[type="tel"] {
+        letter-spacing: 6px;
+        text-align: center;
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+      .result {
+        border-radius: 24px;
+        border: 1px solid rgba(129, 140, 248, 0.35);
+        background: rgba(237, 242, 255, 0.9);
+        padding: 28px;
+        display: grid;
+        gap: 16px;
+      }
+      .result pre {
+        margin: 0;
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 16px;
+        padding: 18px;
+        overflow: auto;
+      }
+      .error {
+        color: #dc2626;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body data-endpoint="https://your-api-endpoint.example.com/create-campaign">
+    <div class="container">
+      <header>
+        <div class="logo-slot">Twoje logo</div>
+        <div>
+          <h1>Zamów kampanię QR z limitem użyć</h1>
+          <p>
+            Idealne rozwiązanie dla małych sklepów i gastronomii, które chcą szybko uruchomić promocję bez skomplikowanych systemów lojalnościowych. W kilku krokach określisz zasady, a my przygotujemy kody gotowe do publikacji.
+          </p>
+        </div>
+        <div class="features">
+          <article class="feature">
+            <h3>Kupony z licznikiem</h3>
+            <p>
+              Ustal ile razy oferta może zostać zeskanowana. System automatycznie zatrzyma kampanię, gdy limit zostanie wykorzystany.
+            </p>
+          </article>
+          <article class="feature">
+            <h3>Dwa kody QR</h3>
+            <p>
+              Otrzymasz kod do publikacji i kod testowy – dzięki temu możesz spokojnie sprawdzić działanie promocji przed startem.
+            </p>
+          </article>
+          <article class="feature">
+            <h3>Dowolna prezentacja</h3>
+            <p>
+              Zdecyduj, czy po skanowaniu klient zobaczy stronę www, kod rabatowy na ekranie, czy dedykowaną grafikę Twojej marki.
+            </p>
+          </article>
+        </div>
+      </header>
+
+      <section class="price-box" id="priceBox">
+        <div class="price-main">
+          <span id="priceValue">9,99 zł</span>
+          <span class="price-note" id="priceNote">za przygotowanie kampanii</span>
+        </div>
+        <p class="price-note">
+          W cenie otrzymujesz konfigurację promocji, materiały z kodami QR w formacie PNG oraz krótką instrukcję publikacji.
+        </p>
+        <div class="promo-actions">
+          <button type="button" class="secondary" id="promoButton">Polubiłem profil na Facebooku – chcę cenę 4,99 zł</button>
+          <span class="note">Po potwierdzeniu polubienia naliczymy zniżkę do końcowej kwoty.</span>
+        </div>
+      </section>
+
+      <form id="orderForm">
+        <ol class="steps-indicator">
+          <li class="active"><span>1</span>Dane kontaktowe</li>
+          <li><span>2</span>Parametry kampanii</li>
+          <li><span>3</span>Faktura i notatki</li>
+          <li><span>4</span>Podsumowanie i płatność</li>
+        </ol>
+
+        <section class="step active" data-step="1">
+          <div class="row two">
+            <label>
+              Imię i nazwa marki
+              <input type="text" name="contactName" required placeholder="np. Anna z Kawiarni Mokka" />
+            </label>
+            <label>
+              Adres e-mail do potwierdzenia
+              <input type="email" name="email" required placeholder="np. sklep@example.com" />
+            </label>
+          </div>
+          <label>
+            Numer telefonu (opcjonalnie)
+            <input type="tel" name="phone" placeholder="np. 500 600 700" />
+          </label>
+        </section>
+
+        <section class="step" data-step="2">
+          <div class="row two">
+            <label>
+              Liczba skanów w promocji
+              <input type="number" name="maxScans" min="1" max="9999" required placeholder="np. 25" />
+            </label>
+            <label>
+              Typ promocji
+              <select name="promotionType" id="promotionType" required>
+                <option value="redirect">Przekierowanie na stronę</option>
+                <option value="promo_code">Wyświetlenie kodu rabatowego</option>
+                <option value="image">Wyświetlenie grafiki z promocją</option>
+              </select>
+            </label>
+          </div>
+          <div id="redirectFields" class="row hidden">
+            <label>
+              Adres URL do przekierowania
+              <input type="url" name="redirectUrl" placeholder="https://twoja-promocja.pl" />
+            </label>
+          </div>
+          <div id="promoCodeFields" class="row hidden">
+            <label>
+              Kod rabatowy wyświetlany po zeskanowaniu
+              <input type="text" name="promoCode" placeholder="np. RABAT-10" />
+            </label>
+          </div>
+          <div id="imageFields" class="row hidden">
+            <label>
+              Link do grafiki promocyjnej
+              <input type="url" name="imagePath" placeholder="https://cdn.twojemateriały.pl/kupon.jpg" />
+            </label>
+            <span class="note">Załaduj grafikę do własnej chmury i wklej bezpośredni adres URL.</span>
+          </div>
+          <label>
+            Opcjonalny kod kasowy (dla obsługi)
+            <input type="text" name="cashierCode" placeholder="np. POS-123" />
+          </label>
+        </section>
+
+        <section class="step" data-step="3">
+          <label>
+            Dodatkowe uwagi (np. kolorystyka materiałów, format plików)
+            <textarea name="notes" placeholder="Jakie detale mamy uwzględnić?"></textarea>
+          </label>
+          <div class="checkbox">
+            <input type="checkbox" id="invoiceCheckbox" name="invoice" />
+            <label for="invoiceCheckbox">Firma – potrzebuję faktury VAT 23%</label>
+          </div>
+          <label id="companyDetails" class="hidden">
+            Dane do faktury (nazwa firmy, NIP, adres)
+            <textarea name="invoiceDetails" placeholder="Wpisz wszystkie dane rozliczeniowe"></textarea>
+          </label>
+        </section>
+
+        <section class="step" data-step="4">
+          <div class="summary-card">
+            <h3>Podsumowanie zamówienia</h3>
+            <dl id="summaryList"></dl>
+            <p class="note" id="summaryPriceNote"></p>
+          </div>
+          <div class="payment-module">
+            <h3>Wybierz metodę płatności</h3>
+            <p class="note">Płatność online – finalizacja zamówienia nastąpi po potwierdzeniu kodu BLIK.</p>
+            <div class="blik-field">
+              <label>
+                Kod BLIK
+                <input type="tel" id="blikCode" name="blikCode" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="••••••" required />
+              </label>
+              <span class="note">Wpisz sześciocyfrowy kod z aplikacji bankowej.</span>
+            </div>
+            <p class="error hidden" id="paymentError"></p>
+          </div>
+        </section>
+
+        <div class="actions">
+          <button type="button" class="secondary" id="prevButton">Wstecz</button>
+          <span class="spacer"></span>
+          <button type="button" class="primary" id="nextButton">Dalej</button>
+          <button type="submit" class="primary hidden" id="submitButton">Opłać i zamów</button>
+        </div>
+      </form>
+
+      <section id="result" class="result hidden"></section>
+    </div>
+
+    <script>
+      const form = document.getElementById("orderForm");
+      const steps = Array.from(document.querySelectorAll(".step"));
+      const stepIndicators = Array.from(document.querySelectorAll(".steps-indicator li"));
+      const nextButton = document.getElementById("nextButton");
+      const prevButton = document.getElementById("prevButton");
+      const submitButton = document.getElementById("submitButton");
+      const resultBox = document.getElementById("result");
+      const promotionType = document.getElementById("promotionType");
+      const redirectFields = document.getElementById("redirectFields");
+      const promoCodeFields = document.getElementById("promoCodeFields");
+      const imageFields = document.getElementById("imageFields");
+      const invoiceCheckbox = document.getElementById("invoiceCheckbox");
+      const companyDetails = document.getElementById("companyDetails");
+      const summaryList = document.getElementById("summaryList");
+      const summaryPriceNote = document.getElementById("summaryPriceNote");
+      const blikCode = document.getElementById("blikCode");
+      const paymentError = document.getElementById("paymentError");
+      const priceValue = document.getElementById("priceValue");
+      const priceNote = document.getElementById("priceNote");
+      const promoButton = document.getElementById("promoButton");
+
+      const API_ENDPOINT = document.body.dataset.endpoint;
+      let currentStep = 0;
+      let currentPrice = 9.99;
+      let promoActive = false;
+
+      function toggleFields(type) {
+        redirectFields.classList.toggle("hidden", type !== "redirect");
+        promoCodeFields.classList.toggle("hidden", type !== "promo_code");
+        imageFields.classList.toggle("hidden", type !== "image");
+        redirectFields.querySelector("input").required = type === "redirect";
+        promoCodeFields.querySelector("input").required = type === "promo_code";
+        imageFields.querySelector("input").required = type === "image";
+      }
+
+      function updateSteps() {
+        steps.forEach((step, index) => {
+          step.classList.toggle("active", index === currentStep);
+        });
+        stepIndicators.forEach((indicator, index) => {
+          indicator.classList.toggle("active", index === currentStep);
+        });
+        prevButton.disabled = currentStep === 0;
+        nextButton.classList.toggle("hidden", currentStep === steps.length - 1);
+        submitButton.classList.toggle("hidden", currentStep !== steps.length - 1);
+        if (currentStep === steps.length - 1) {
+          populateSummary();
+        }
+      }
+
+      function validateStep(stepIndex) {
+        const step = steps[stepIndex];
+        const inputs = Array.from(step.querySelectorAll("input, select, textarea"));
+        return inputs.every((input) => input.checkValidity());
+      }
+
+      function populateSummary() {
+        const formData = new FormData(form);
+        const map = [
+          { label: "Osoba kontaktowa", value: formData.get("contactName") },
+          { label: "E-mail", value: formData.get("email") },
+          { label: "Telefon", value: formData.get("phone") || "—" },
+          { label: "Limit skanów", value: formData.get("maxScans") },
+          {
+            label: "Typ prezentacji",
+            value:
+              {
+                redirect: "Przekierowanie na stronę",
+                promo_code: "Kod rabatowy",
+                image: "Grafika promocyjna",
+              }[formData.get("promotionType")] || "—",
+          },
+          { label: "Adres URL", value: formData.get("redirectUrl") || "—" },
+          { label: "Kod rabatowy", value: formData.get("promoCode") || "—" },
+          { label: "Grafika", value: formData.get("imagePath") || "—" },
+          { label: "Kod kasowy", value: formData.get("cashierCode") || "—" },
+          { label: "Uwagi", value: formData.get("notes") || "Brak" },
+          {
+            label: "Faktura",
+            value: formData.get("invoice") === "on" ? "Tak" : "Nie",
+          },
+          {
+            label: "Dane do faktury",
+            value:
+              formData.get("invoice") === "on"
+                ? formData.get("invoiceDetails") || "Zostaną uzupełnione później"
+                : "—",
+          },
+        ];
+
+        summaryList.innerHTML = map
+          .map((item) => `\n              <dt>${item.label}</dt>\n              <dd>${item.value || "—"}</dd>\n            `)
+          .join("");
+
+        summaryPriceNote.textContent = promoActive
+          ? "Cena po rabacie Facebook: 4,99 zł"
+          : "Cena standardowa: 9,99 zł";
+      }
+
+      function goToStep(index) {
+        if (index < 0 || index >= steps.length) return;
+        currentStep = index;
+        updateSteps();
+      }
+
+      promotionType.addEventListener("change", (event) => {
+        toggleFields(event.target.value);
+      });
+
+      invoiceCheckbox.addEventListener("change", (event) => {
+        companyDetails.classList.toggle("hidden", !event.target.checked);
+        if (!event.target.checked) {
+          companyDetails.querySelector("textarea").value = "";
+        }
+      });
+
+      promoButton.addEventListener("click", () => {
+        promoActive = true;
+        currentPrice = 4.99;
+        priceValue.textContent = "4,99 zł";
+        priceNote.textContent = "po potwierdzeniu polubienia naszego profilu";
+        promoButton.disabled = true;
+        promoButton.textContent = "Rabat aktywny";
+        if (currentStep === steps.length - 1) {
+          populateSummary();
+        }
+      });
+
+      nextButton.addEventListener("click", () => {
+        if (!validateStep(currentStep)) {
+          const step = steps[currentStep];
+          const firstInvalid = step.querySelector(":invalid");
+          if (firstInvalid) {
+            firstInvalid.reportValidity();
+          }
+          return;
+        }
+        goToStep(currentStep + 1);
+      });
+
+      prevButton.addEventListener("click", () => {
+        goToStep(currentStep - 1);
+      });
+
+      function ensureEndpointConfigured() {
+        if (!API_ENDPOINT || API_ENDPOINT.includes("your-api-endpoint")) {
+          throw new Error(
+            "Skonfiguruj adres API w atrybucie data-endpoint na elemencie <body>."
+          );
+        }
+      }
+
+      function validateBlik() {
+        return /^\d{6}$/.test(blikCode.value.trim());
+      }
+
+      async function submitOrder(event) {
+        event.preventDefault();
+        if (!validateStep(currentStep)) {
+          return;
+        }
+        paymentError.classList.add("hidden");
+        paymentError.textContent = "";
+        if (!validateBlik()) {
+          paymentError.textContent = "Wpisz poprawny sześciocyfrowy kod BLIK.";
+          paymentError.classList.remove("hidden");
+          blikCode.focus();
+          return;
+        }
+
+        try {
+          ensureEndpointConfigured();
+        } catch (configurationError) {
+          paymentError.textContent = configurationError.message;
+          paymentError.classList.remove("hidden");
+          return;
+        }
+
+        submitButton.disabled = true;
+        submitButton.textContent = "Przetwarzanie płatności...";
+        resultBox.classList.add("hidden");
+        resultBox.innerHTML = "";
+
+        const formData = new FormData(form);
+        const payload = {
+          email: formData.get("email"),
+          contactName: formData.get("contactName"),
+          phone: formData.get("phone") || undefined,
+          maxScans: Number(formData.get("maxScans")),
+          promotionType: formData.get("promotionType"),
+          promoCode: formData.get("promoCode") || undefined,
+          redirectUrl: formData.get("redirectUrl") || undefined,
+          imagePath: formData.get("imagePath") || undefined,
+          cashierCode: formData.get("cashierCode") || undefined,
+          invoiceRequested: formData.get("invoice") === "on",
+          invoiceDetails: formData.get("invoiceDetails") || undefined,
+          notes: formData.get("notes") || undefined,
+          price: currentPrice,
+          payment: {
+            method: "blik",
+            code: blikCode.value.trim(),
+          },
+        };
+
+        try {
+          const response = await fetch(API_ENDPOINT, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          });
+
+          const text = await response.text();
+          let data;
+          try {
+            data = JSON.parse(text);
+          } catch (_) {
+            throw new Error("Nie udało się odczytać odpowiedzi z serwera. Treść: " + text);
+          }
+
+          if (!response.ok) {
+            throw new Error(data.error || data.message || "Wystąpił błąd podczas realizacji zamówienia.");
+          }
+
+          resultBox.classList.remove("hidden");
+          resultBox.innerHTML = `
+            <h2>Zamówienie przyjęte</h2>
+            <p>Twoja kampania została zapisana. W ciągu kilku minut otrzymasz e-mail z dwoma kodami QR oraz instrukcją wdrożenia.</p>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          `;
+        } catch (error) {
+          paymentError.textContent = error.message;
+          paymentError.classList.remove("hidden");
+        } finally {
+          submitButton.disabled = false;
+          submitButton.textContent = "Opłać i zamów";
+        }
+      }
+
+      form.addEventListener("submit", submitOrder);
+
+      toggleFields(promotionType.value);
+      updateSteps();
+    </script>
+  </body>
+</html>
