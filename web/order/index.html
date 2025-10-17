@@ -348,10 +348,52 @@
         font-size: 1.35rem;
         color: #0f172a;
       }
+      .payment-module .payment-options {
+        display: grid;
+        gap: 12px;
+      }
+      .payment-option {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 16px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        cursor: pointer;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+      .payment-option input[type="radio"] {
+        width: 20px;
+        height: 20px;
+        accent-color: #2563eb;
+      }
+      .payment-option .option-content span {
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .payment-option .option-content small {
+        display: block;
+        color: rgba(71, 85, 105, 0.85);
+        margin-top: 4px;
+      }
+      .payment-option:hover {
+        border-color: rgba(37, 99, 235, 0.6);
+        box-shadow: 0 10px 20px rgba(59, 130, 246, 0.12);
+      }
+      .payment-option.active {
+        border-color: rgba(37, 99, 235, 0.9);
+        box-shadow: 0 14px 26px rgba(37, 99, 235, 0.18);
+        background: linear-gradient(135deg, rgba(219, 234, 254, 0.75), rgba(191, 219, 254, 0.6));
+      }
       .payment-module .blik-field {
         display: grid;
         gap: 8px;
         max-width: 260px;
+      }
+      .payment-module .blik-field.hidden {
+        display: none;
       }
       .payment-module input[type="tel"] {
         letter-spacing: 6px;
@@ -409,7 +451,7 @@
     </style>
   </head>
   <body
-    data-endpoint="https://your-api-endpoint.example.com/create-campaign"
+    data-endpoint="https://your-api-endpoint.example.com/order"
     data-fb-profile-url="https://www.facebook.com/sowa.rezerwacje/"
   >
     <div class="container">
@@ -565,14 +607,30 @@
           </div>
           <div class="payment-module">
             <h3>Wybierz metodę płatności</h3>
-            <p class="note">Płatność online – finalizacja zamówienia nastąpi po potwierdzeniu kodu BLIK.</p>
-            <div class="blik-field">
+            <div class="payment-options" id="paymentOptions">
+              <label class="payment-option active">
+                <input type="radio" name="paymentMethod" value="blik" checked />
+                <div class="option-content">
+                  <span>BLIK</span>
+                  <small>Natychmiastowe potwierdzenie i szybkie wygenerowanie kampanii.</small>
+                </div>
+              </label>
+              <label class="payment-option">
+                <input type="radio" name="paymentMethod" value="transfer" />
+                <div class="option-content">
+                  <span>Szybki przelew</span>
+                  <small>Przekierowanie do Przelewy24 i finalizacja w banku.</small>
+                </div>
+              </label>
+            </div>
+            <div class="blik-field" id="blikField">
               <label>
                 Kod BLIK
                 <input type="tel" id="blikCode" name="blikCode" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="••••••" required />
               </label>
               <span class="note">Wpisz sześciocyfrowy kod z aplikacji bankowej.</span>
             </div>
+            <p class="note" id="paymentNote">Płatność online – finalizacja zamówienia nastąpi po potwierdzeniu kodu BLIK.</p>
             <p class="error hidden" id="paymentError"></p>
           </div>
         </section>
@@ -620,6 +678,11 @@
       const summaryList = document.getElementById("summaryList");
       const summaryPriceNote = document.getElementById("summaryPriceNote");
       const blikCode = document.getElementById("blikCode");
+      const blikField = document.getElementById("blikField");
+      const paymentOptionInputs = Array.from(
+        document.querySelectorAll('input[name="paymentMethod"]'),
+      );
+      const paymentNote = document.getElementById("paymentNote");
       const paymentError = document.getElementById("paymentError");
       const priceValue = document.getElementById("priceValue");
       const priceNote = document.getElementById("priceNote");
@@ -666,6 +729,34 @@
           return value;
         }
         return `${datePart} ${timePart}`;
+      }
+
+      function getSelectedPaymentMethod() {
+        const selected = paymentOptionInputs.find((input) => input.checked);
+        return selected ? selected.value : "blik";
+      }
+
+      function updatePaymentSelectionUI() {
+        const method = getSelectedPaymentMethod();
+        paymentOptionInputs.forEach((input) => {
+          const option = input.closest(".payment-option");
+          if (option) {
+            option.classList.toggle("active", input.checked);
+          }
+        });
+
+        if (method === "blik") {
+          blikField.classList.remove("hidden");
+          blikCode.required = true;
+          paymentNote.textContent =
+            "Płatność online – finalizacja zamówienia nastąpi po potwierdzeniu kodu BLIK.";
+        } else {
+          blikField.classList.add("hidden");
+          blikCode.required = false;
+          blikCode.value = "";
+          paymentNote.textContent =
+            "Po wysłaniu formularza przekierujemy Cię do szybkiego przelewu Przelewy24.";
+        }
       }
 
       function calculateTotalPrice() {
@@ -821,6 +912,13 @@
                 : "0",
           },
           { label: "Łączna ważność kodów", value: `${totalValidity} dni` },
+          {
+            label: "Metoda płatności",
+            value:
+              getSelectedPaymentMethod() === "blik"
+                ? "BLIK (natychmiastowa)"
+                : "Szybki przelew (Przelewy24)",
+          },
         ];
 
         summaryList.innerHTML = map
@@ -852,6 +950,10 @@
         }
       });
 
+      paymentOptionInputs.forEach((input) => {
+        input.addEventListener("change", updatePaymentSelectionUI);
+      });
+
       promoButton.addEventListener("click", handlePromoClick);
       window.addEventListener("focus", handleWindowFocus);
 
@@ -880,6 +982,9 @@
       }
 
       function validateBlik() {
+        if (getSelectedPaymentMethod() !== "blik") {
+          return true;
+        }
         return /^\d{6}$/.test(blikCode.value.trim());
       }
 
@@ -890,7 +995,8 @@
         }
         paymentError.classList.add("hidden");
         paymentError.textContent = "";
-        if (!validateBlik()) {
+        const paymentMethod = getSelectedPaymentMethod();
+        if (paymentMethod === "blik" && !validateBlik()) {
           paymentError.textContent = "Wpisz poprawny sześciocyfrowy kod BLIK.";
           paymentError.classList.remove("hidden");
           blikCode.focus();
@@ -931,10 +1037,15 @@
             extraCost: Number((extensionUnitsValue * EXTENSION_COST).toFixed(2)),
             totalValidityDays: BASE_VALIDITY_DAYS + extensionUnitsValue * EXTENSION_DAYS,
           },
-          payment: {
-            method: "blik",
-            code: blikCode.value.trim(),
-          },
+          payment:
+            paymentMethod === "blik"
+              ? {
+                  method: "blik",
+                  code: blikCode.value.trim(),
+                }
+              : {
+                  method: "transfer",
+                },
         };
 
         try {
@@ -956,6 +1067,22 @@
 
           if (!response.ok) {
             throw new Error(data.error || data.message || "Wystąpił błąd podczas realizacji zamówienia.");
+          }
+
+          if (
+            data.payment &&
+            data.payment.method === "transfer" &&
+            data.payment.redirectUrl
+          ) {
+            resultBox.classList.remove("hidden");
+            resultBox.innerHTML = `
+              <h2>Przekierowanie do płatności</h2>
+              <p>Za chwilę przełączymy Cię na stronę Przelewy24, aby dokończyć płatność szybkim przelewem.</p>
+              <p>Jeżeli przekierowanie nie nastąpi automatycznie, skorzystaj z linku: <a href="${data.payment.redirectUrl}" target="_blank" rel="noopener">otwórz płatność</a>.</p>
+              <pre>${JSON.stringify(data.order || data, null, 2)}</pre>
+            `;
+            window.location.href = data.payment.redirectUrl;
+            return;
           }
 
           resultBox.classList.remove("hidden");
@@ -994,6 +1121,7 @@
         }
       });
 
+      updatePaymentSelectionUI();
       toggleFields(promotionType.value);
       updateSteps();
       if (hasFacebookConfig) {

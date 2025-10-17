@@ -27,6 +27,12 @@ System automatycznie generuje dwa kody QR: publiczny i testowy (nie zmniejsza li
 
 - `supabase/functions/create-campaign` – waliduje wejście, zapisuje kampanię,
   generuje tokeny, tworzy grafiki QR i opcjonalnie wysyła e-mail z podsumowaniem.
+- `supabase/functions/order` – przyjmuje zamówienie z formularza, rejestruje
+  transakcję w Przelewy24, pobiera kod BLIK lub przygotowuje przekierowanie na
+  szybki przelew oraz – po potwierdzeniu płatności – tworzy kampanię i QR-y.
+- `supabase/functions/p24-webhook` – odbiera notyfikacje statusu z Przelewy24,
+  weryfikuje podpis i finalizuje kampanię dla przelewów (redirect) lub w razie
+  błędu oznacza zamówienie jako nieudane.
 - `supabase/functions/qr` – konsumuje skan (z użyciem funkcji SQL z licznikiem) i
   zwraca przekierowanie albo prosty widok HTML z informacją o promocji.
 - Bucket `promo-assets` (publiczny) służy do przechowywania grafik dla promocji typu `image`.
@@ -42,9 +48,13 @@ System automatycznie generuje dwa kody QR: publiczny i testowy (nie zmniejsza li
 1. Skopiuj plik `.env.example` do `.env` i uzupełnij wartości:
    - `SUPABASE_URL` oraz `SUPABASE_SERVICE_ROLE_KEY` – dane projektu Supabase,
    - `PUBLIC_APP_URL` – publiczny adres funkcji (np. `https://<ref>.functions.supabase.co`),
+   - `PUBLIC_FRONTEND_URL` – adres hostowanej strony zamówienia (np. Netlify/Vercel),
    - `PROMO_ASSET_BUCKET` – nazwa bucketu na grafiki (domyślnie `promo-assets`),
    - `CORS_ALLOWED_ORIGIN` – adres panelu/klienta, który będzie wywoływał funkcję `create-campaign`,
    - `RESEND_API_KEY`, `EMAIL_FROM` – jeżeli chcesz wysyłać podsumowania e-mail.
+   - `P24_MERCHANT_ID`, `P24_POS_ID`, `P24_REST_API_KEY`, `P24_CRC`, `P24_API_URL`,
+     `P24_PAYMENT_URL`, `P24_RETURN_URL`, `P24_STATUS_URL` – konfiguracja Przelewy24.
+     Zabezpiecz wartości, przechowując je jako Supabase secrets (`supabase functions secrets set`).
 2. Utwórz storage bucket:
    ```bash
    supabase storage create-bucket promo-assets --public
@@ -83,9 +93,21 @@ standardową kampanię) oraz dodatkowy przycisk aktywujący cenę promocyjną 4,
 po polubieniu profilu na Facebooku. Formularz uwzględnia również opcję
 „**Firma – Faktura VAT 23%**”, która pozwala klientowi przesłać dane rozliczeniowe.
 
-Strona wywołuje funkcję `create-campaign` (adres należy uzupełnić w polu
-formularza) i prezentuje wygenerowane kody QR wraz z danymi JSON. Możesz ją
+Strona wywołuje funkcję `order` (adres należy uzupełnić w atrybucie
+`data-endpoint` elementu `<body>`) i prezentuje wynik płatności. Możesz ją
 hostować jako statyczny plik (np. na Vercel, Netlify czy w Supabase Storage).
+
+### Integracja płatności Przelewy24
+
+- Edge Function `order` zapisuje zamówienie w tabeli `orders`, rejestruje
+  transakcję w P24, przelicza kwotę i w razie wyboru BLIK wykonuje od razu
+  autoryzację (`paymentmethods/blik/charge` + `transaction/verify`).
+- W przypadku szybkiego przelewu funkcja zwraca adres przekierowania
+  `trnRequest`. Finalizacja następuje po stronie P24, a webhook `p24-webhook`
+  (adres przekazywany w `P24_STATUS_URL` lub `PUBLIC_APP_URL/p24-webhook`)
+  potwierdza podpis `SHA384` i tworzy kampanię.
+- Sekrety Przelewy24 (`P24_*`) przechowuj jako Supabase secrets. Skrypt
+  `scripts/deploy-supabase.ps1` ustawi je automatycznie na podstawie `.env`.
 
 ### Lokalny podgląd
 
@@ -143,6 +165,61 @@ Polom warunkowym odpowiadają typy promocji:
 ```
 
 Jeżeli ustawiono Resend, na adres `email` zostanie wysłane podsumowanie z linkami.
+
+### `POST /order`
+
+Rejestruje zamówienie, uruchamia płatność Przelewy24 i – w przypadku BLIK – od razu
+tworzy kampanię. Dla szybkich przelewów zwraca adres przekierowania.
+
+**Body JSON**
+
+```json
+{
+  "email": "owner@example.com",
+  "maxScans": 150,
+  "promotionType": "promo_code",
+  "promoCode": "MEGA-2024",
+  "price": 9.99,
+  "extension": { "units": 0, "extraDays": 0, "extraCost": 0, "totalValidityDays": 49 },
+  "payment": { "method": "blik", "code": "123456" }
+}
+```
+
+- `payment.method` może przyjąć wartości `blik` lub `transfer`.
+- W przypadku `transfer` pole `code` jest pomijane, a odpowiedź zawiera
+  `payment.redirectUrl` (adres do przekierowania `trnRequest`).
+- Pola kampanii są zgodne z `create-campaign`; dodatkowo przyjmujemy dane
+  fakturowe (`invoiceRequested`, `invoiceDetails`) oraz `notes`.
+
+**Odpowiedź 201 (BLIK)**
+
+```json
+{
+  "status": "success",
+  "order": {
+    "id": "c5d0...",
+    "sessionId": "7e7f...",
+    "amount": 999,
+    "currency": "PLN"
+  },
+  "payment": { "method": "blik", "orderId": 1234567 },
+  "campaign": { "campaignId": "...", "publicQr": { "token": "..." } }
+}
+```
+
+**Odpowiedź 202 (transfer)**
+
+```json
+{
+  "status": "pending",
+  "order": { "id": "...", "sessionId": "...", "amount": 999, "currency": "PLN" },
+  "payment": {
+    "method": "transfer",
+    "orderId": 7654321,
+    "redirectUrl": "https://sandbox.przelewy24.pl/trnRequest/..."
+  }
+}
+```
 
 ### `GET /qr/{token}`
 
