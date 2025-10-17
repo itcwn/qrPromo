@@ -104,6 +104,7 @@
         flex-wrap: wrap;
         gap: 12px;
         margin-top: 8px;
+        align-items: center;
       }
       button {
         border: none;
@@ -130,6 +131,30 @@
       }
       button:hover:not(:disabled) {
         transform: translateY(-1px);
+      }
+      .promo-feedback {
+        flex: 1 1 240px;
+        font-size: 0.95rem;
+        line-height: 1.45;
+      }
+      .promo-feedback span {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 9999px;
+      }
+      .promo-feedback .info {
+        background: rgba(129, 140, 248, 0.15);
+        color: #1d4ed8;
+      }
+      .promo-feedback .success {
+        background: rgba(34, 197, 94, 0.18);
+        color: #15803d;
+      }
+      .promo-feedback .error {
+        background: rgba(248, 113, 113, 0.22);
+        color: #b91c1c;
       }
       form {
         display: grid;
@@ -312,7 +337,12 @@
       }
     </style>
   </head>
-  <body data-endpoint="https://your-api-endpoint.example.com/create-campaign">
+  <body
+    data-endpoint="https://your-api-endpoint.example.com/create-campaign"
+    data-fb-app-id="YOUR_FACEBOOK_APP_ID"
+    data-fb-page-id="YOUR_FACEBOOK_PAGE_ID"
+    data-fb-locale="pl_PL"
+  >
     <div class="container">
       <header>
         <div class="logo-slot">Twoje logo</div>
@@ -353,8 +383,14 @@
           W cenie otrzymujesz konfigurację promocji, materiały z kodami QR w formacie PNG oraz krótką instrukcję publikacji.
         </p>
         <div class="promo-actions">
-          <button type="button" class="secondary" id="promoButton">Polubiłem profil na Facebooku – chcę cenę 4,99 zł</button>
-          <span class="note">Po potwierdzeniu polubienia naliczymy zniżkę do końcowej kwoty.</span>
+          <button type="button" class="secondary" id="promoButton">
+            Zweryfikuj polubienie profilu na Facebooku – odbierz cenę 4,99 zł
+          </button>
+          <div class="promo-feedback" id="promoFeedback">
+            <span class="info"
+              >Po kliknięciu poprosimy o zalogowanie do Facebooka i potwierdzenie, że lubisz wskazany profil.</span
+            >
+          </div>
         </div>
       </section>
 
@@ -490,11 +526,164 @@
       const priceValue = document.getElementById("priceValue");
       const priceNote = document.getElementById("priceNote");
       const promoButton = document.getElementById("promoButton");
+      const promoFeedback = document.getElementById("promoFeedback");
+      const fbAppId = document.body.dataset.fbAppId;
+      const fbPageId = document.body.dataset.fbPageId;
+      const fbLocale = document.body.dataset.fbLocale || "pl_PL";
+      const hasFacebookConfig =
+        fbAppId && fbAppId !== "YOUR_FACEBOOK_APP_ID" && fbPageId && fbPageId !== "YOUR_FACEBOOK_PAGE_ID";
+      const defaultPromoMessage =
+        "Po kliknięciu poprosimy o zalogowanie do Facebooka i potwierdzenie, że lubisz wskazany profil.";
+      const promoButtonDefaultText = promoButton.textContent.trim();
 
       const API_ENDPOINT = document.body.dataset.endpoint;
       let currentStep = 0;
       let currentPrice = 9.99;
       let promoActive = false;
+      let facebookSdkPromise = null;
+
+      function setPromoFeedback(message, variant = "info") {
+        if (!promoFeedback) return;
+        promoFeedback.innerHTML = `<span class="${variant}">${message}</span>`;
+      }
+
+      function activatePromo() {
+        promoActive = true;
+        currentPrice = 4.99;
+        priceValue.textContent = "4,99 zł";
+        priceNote.textContent = "po potwierdzeniu polubienia naszego profilu";
+        promoButton.disabled = true;
+        promoButton.textContent = "Polubienie potwierdzone – rabat aktywny";
+        if (currentStep === steps.length - 1) {
+          populateSummary();
+        }
+      }
+
+      function loadFacebookSdk() {
+        if (typeof FB !== "undefined") {
+          return Promise.resolve(FB);
+        }
+        if (!facebookSdkPromise) {
+          facebookSdkPromise = new Promise((resolve, reject) => {
+            if (!hasFacebookConfig) {
+              reject(
+                new Error(
+                  "Skonfiguruj identyfikatory aplikacji i strony Facebooka w atrybutach data-fb-app-id oraz data-fb-page-id."
+                )
+              );
+              return;
+            }
+            window.fbAsyncInit = function () {
+              try {
+                FB.init({
+                  appId: fbAppId,
+                  cookie: true,
+                  xfbml: false,
+                  version: "v17.0",
+                });
+                resolve(FB);
+              } catch (initializationError) {
+                reject(initializationError);
+              }
+            };
+            const script = document.createElement("script");
+            script.src = `https://connect.facebook.net/${fbLocale}/sdk.js`;
+            script.async = true;
+            script.defer = true;
+            script.onerror = () => reject(new Error("Nie udało się załadować SDK Facebooka."));
+            document.body.appendChild(script);
+          });
+        }
+        return facebookSdkPromise;
+      }
+
+      function ensureFacebookLogin(FBInstance) {
+        return new Promise((resolve, reject) => {
+          FBInstance.getLoginStatus((loginStatus) => {
+            if (loginStatus.status === "connected") {
+              resolve(loginStatus);
+              return;
+            }
+            FBInstance.login(
+              (response) => {
+                if (response.authResponse) {
+                  resolve(response);
+                } else {
+                  reject(
+                    new Error(
+                      "Aby skorzystać ze zniżki, zaloguj się na Facebooku i przyznaj uprawnienie do odczytu polubionych stron."
+                    )
+                  );
+                }
+              },
+              { scope: "email,user_likes", return_scopes: true }
+            );
+          });
+        });
+      }
+
+      function verifyFacebookLike(FBInstance) {
+        return new Promise((resolve, reject) => {
+          FBInstance.api(`/me/likes/${fbPageId}`, "GET", (response) => {
+            if (!response) {
+              reject(new Error("Nie udało się zweryfikować polubienia. Spróbuj ponownie."));
+              return;
+            }
+            if (response.error) {
+              if (response.error.code === 200) {
+                reject(
+                  new Error(
+                    "Brak uprawnień do sprawdzenia polubionych stron. Przy ponownym logowaniu zaznacz zgodę na udostępnienie polubień."
+                  )
+                );
+                return;
+              }
+              reject(new Error(response.error.message || "Facebook zwrócił błąd podczas weryfikacji polubienia."));
+              return;
+            }
+            const liked = Array.isArray(response.data) && response.data.length > 0;
+            resolve(liked);
+          });
+        });
+      }
+
+      async function handlePromoClick() {
+        if (promoActive) {
+          return;
+        }
+        if (!hasFacebookConfig) {
+          setPromoFeedback(
+            "Skonfiguruj atrybuty data-fb-app-id oraz data-fb-page-id na elemencie <body>, aby uruchomić weryfikację.",
+            "error"
+          );
+          return;
+        }
+        promoButton.disabled = true;
+        promoButton.textContent = "Weryfikujemy polubienie...";
+        setPromoFeedback("Trwa weryfikacja polubienia profilu...", "info");
+
+        try {
+          const FBInstance = await loadFacebookSdk();
+          await ensureFacebookLogin(FBInstance);
+          const liked = await verifyFacebookLike(FBInstance);
+          if (!liked) {
+            throw new Error(
+              "Nie znaleźliśmy polubienia tej strony. Polub profil na Facebooku i spróbuj ponownie po kilku minutach."
+            );
+          }
+          activatePromo();
+          setPromoFeedback("Polubienie potwierdzone! Rabat 4,99 zł został naliczony.", "success");
+        } catch (error) {
+          setPromoFeedback(error.message || "Nie udało się zweryfikować polubienia.", "error");
+          if (typeof FB === "undefined") {
+            facebookSdkPromise = null;
+          }
+          if (!promoActive) {
+            promoButton.disabled = false;
+            promoButton.textContent = promoButtonDefaultText;
+          }
+        }
+      }
 
       function toggleFields(type) {
         redirectFields.classList.toggle("hidden", type !== "redirect");
@@ -586,17 +775,7 @@
         }
       });
 
-      promoButton.addEventListener("click", () => {
-        promoActive = true;
-        currentPrice = 4.99;
-        priceValue.textContent = "4,99 zł";
-        priceNote.textContent = "po potwierdzeniu polubienia naszego profilu";
-        promoButton.disabled = true;
-        promoButton.textContent = "Rabat aktywny";
-        if (currentStep === steps.length - 1) {
-          populateSummary();
-        }
-      });
+      promoButton.addEventListener("click", handlePromoClick);
 
       nextButton.addEventListener("click", () => {
         if (!validateStep(currentStep)) {
@@ -714,6 +893,16 @@
 
       toggleFields(promotionType.value);
       updateSteps();
+      if (hasFacebookConfig) {
+        setPromoFeedback(defaultPromoMessage, "info");
+        promoButton.textContent = promoButtonDefaultText;
+      } else {
+        promoButton.disabled = true;
+        setPromoFeedback(
+          "Skonfiguruj atrybuty data-fb-app-id oraz data-fb-page-id na elemencie <body>, aby uruchomić weryfikację.",
+          "error"
+        );
+      }
     </script>
   </body>
 </html>
