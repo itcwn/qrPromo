@@ -99,6 +99,8 @@ Invoke-CheckedCommand -Command @('supabase', 'db', 'execute', '--file', $schemaP
 
 Write-Step "Deploying Edge Functions"
 Invoke-CheckedCommand -Command @('supabase', 'functions', 'deploy', 'create-campaign', '--project-ref', $ProjectRef)
+Invoke-CheckedCommand -Command @('supabase', 'functions', 'deploy', 'order', '--project-ref', $ProjectRef)
+Invoke-CheckedCommand -Command @('supabase', 'functions', 'deploy', 'p24-webhook', '--project-ref', $ProjectRef)
 Invoke-CheckedCommand -Command @('supabase', 'functions', 'deploy', 'qr', '--project-ref', $ProjectRef)
 
 Write-Step "Deployment completed"

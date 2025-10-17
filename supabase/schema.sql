@@ -197,3 +197,50 @@ create policy "Only service role can modify qr codes" on public.qr_codes
 create policy "Only service role can modify scan events" on public.scan_events
   for all using (auth.jwt() ->> 'role' = 'service_role')
   with check (auth.jwt() ->> 'role' = 'service_role');
+
+create table if not exists public.orders (
+  id uuid primary key default gen_random_uuid(),
+  session_id text not null unique,
+  email text not null check (char_length(email) <= 255),
+  amount integer not null check (amount > 0),
+  currency text not null default 'PLN' check (currency = 'PLN'),
+  payment_method text not null check (payment_method in ('blik', 'transfer')),
+  status text not null default 'pending' check (status in ('pending', 'paid', 'failed')),
+  payload jsonb not null,
+  campaign_payload jsonb not null,
+  extension jsonb,
+  invoice_requested boolean not null default false,
+  invoice_details text,
+  notes text,
+  p24_token text,
+  p24_order_id bigint,
+  campaign_id uuid references public.campaigns(id),
+  failure_reason text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  paid_at timestamptz
+);
+
+create index if not exists orders_status_idx on public.orders(status);
+create index if not exists orders_session_idx on public.orders(session_id);
+create index if not exists orders_campaign_idx on public.orders(campaign_id);
+
+alter table public.orders enable row level security;
+
+create policy "Only service role can access orders" on public.orders
+  for all using (auth.jwt() ->> 'role' = 'service_role')
+  with check (auth.jwt() ->> 'role' = 'service_role');
+
+create or replace function public.set_orders_timestamp()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists set_orders_timestamp on public.orders;
+create trigger set_orders_timestamp
+before update on public.orders
+for each row
+execute function public.set_orders_timestamp();
