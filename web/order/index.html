@@ -382,9 +382,7 @@
   </head>
   <body
     data-endpoint="https://your-api-endpoint.example.com/create-campaign"
-    data-fb-app-id="YOUR_FACEBOOK_APP_ID"
-    data-fb-page-id="YOUR_FACEBOOK_PAGE_ID"
-    data-fb-locale="pl_PL"
+    data-fb-profile-url="https://www.facebook.com/YOUR_FACEBOOK_PAGE"
   >
     <div class="container">
       <header>
@@ -392,7 +390,7 @@
         <div>
           <h1>Zamów kampanię kodów QR, która zwiększa sprzedaż</h1>
           <p>
-            Idealne rozwiązanie dla małych firm, sklepów czy gastronomii, które chcą szybko uruchomić promocję bez skomplikowanych systemów lojalnościowych. W kilku krokach określisz zasady, a my przygotujemy kody gotowe do publikacji.
+            Idealne rozwiązanie dla małych firm, sklepów czy gastronomii, które chcą szybko uruchomić promocję bez skomplikowanych systemów lojalnościowych. W kilku krokach określisz zasady, a my przygotujemy kody gotowe do publikacji. Dzięki naszym kodom możesz na bieżąco weryfikować liczbę skanów i reagować na wyniki kampanii.
           </p>
         </div>
         <div class="features">
@@ -425,7 +423,9 @@
         <p class="price-note">
           W cenie otrzymujesz konfigurację promocji, materiały z kodami QR w formacie PNG oraz krótką instrukcję publikacji.
         </p>
-        <p class="price-note validity-note">Kody QR są ważne 49 dni od startu kampanii.</p>
+        <p class="price-note validity-note">
+          Kody QR są ważne 49 dni od startu kampanii. Każde dodatkowe 15 dni kosztuje 0,75 zł.
+        </p>
         <div class="extension-calculator" aria-live="polite">
           <h3>Przedłuż ważność kodów QR</h3>
           <p class="price-note">
@@ -443,11 +443,11 @@
         </div>
         <div class="promo-actions">
           <button type="button" class="secondary" id="promoButton">
-            Zweryfikuj polubienie profilu na Facebooku – odbierz cenę 4,99 zł
+            Odwiedź nasz profil na Facebooku – cena niższa o 2 zł
           </button>
           <div class="promo-feedback" id="promoFeedback">
             <span class="info"
-              >Po kliknięciu poprosimy o zalogowanie do Facebooka i potwierdzenie, że lubisz wskazany profil.</span
+              >Kliknij przycisk, aby otworzyć profil w nowej karcie. Po powrocie na tę stronę naliczymy rabat.</span
             >
           </div>
         </div>
@@ -456,27 +456,18 @@
       <form id="orderForm">
         <input type="hidden" name="extensionUnits" id="extensionUnits" value="0" />
         <ol class="steps-indicator">
-          <li class="active"><span>1</span>Dane kontaktowe</li>
+          <li class="active"><span>1</span>Adres e-mail</li>
           <li><span>2</span>Parametry kampanii</li>
           <li><span>3</span>Faktura i notatki</li>
           <li><span>4</span>Podsumowanie i płatność</li>
         </ol>
 
         <section class="step active" data-step="1">
-          <div class="row two">
-            <label>
-              Imię i nazwa marki
-              <input type="text" name="contactName" required placeholder="np. Anna z Kawiarni Mokka" />
-            </label>
-            <label>
-              Adres e-mail do potwierdzenia
-              <input type="email" name="email" required placeholder="np. sklep@example.com" />
-            </label>
-          </div>
           <label>
-            Numer telefonu (opcjonalnie)
-            <input type="tel" name="phone" placeholder="np. 500 600 700" />
+            Adres e-mail do potwierdzenia
+            <input type="email" name="email" required placeholder="np. sklep@example.com" />
           </label>
+          <span class="note">Na ten adres wyślemy potwierdzenie zamówienia oraz materiały do kampanii.</span>
         </section>
 
         <section class="step" data-step="2">
@@ -494,6 +485,10 @@
               </select>
             </label>
           </div>
+          <label>
+            Data i godzina startu kampanii
+            <input type="datetime-local" name="campaignStart" required />
+          </label>
           <div id="redirectFields" class="row hidden">
             <label>
               Adres URL do przekierowania
@@ -595,13 +590,11 @@
       const extraCostDisplay = document.getElementById("extraCost");
       const totalValidityDisplay = document.getElementById("totalValidity");
       const totalPriceDisplay = document.getElementById("totalPrice");
-      const fbAppId = document.body.dataset.fbAppId;
-      const fbPageId = document.body.dataset.fbPageId;
-      const fbLocale = document.body.dataset.fbLocale || "pl_PL";
+      const fbProfileUrl = document.body.dataset.fbProfileUrl;
       const hasFacebookConfig =
-        fbAppId && fbAppId !== "YOUR_FACEBOOK_APP_ID" && fbPageId && fbPageId !== "YOUR_FACEBOOK_PAGE_ID";
+        Boolean(fbProfileUrl && fbProfileUrl !== "https://www.facebook.com/YOUR_FACEBOOK_PAGE");
       const defaultPromoMessage =
-        "Po kliknięciu poprosimy o zalogowanie do Facebooka i potwierdzenie, że lubisz wskazany profil.";
+        "Kliknij przycisk, aby otworzyć profil w nowej karcie. Po powrocie naliczymy rabat 2 zł.";
       const promoButtonDefaultText = promoButton.textContent.trim();
 
       const API_ENDPOINT = document.body.dataset.endpoint;
@@ -610,14 +603,26 @@
       const EXTENSION_DAYS = 15;
       const EXTENSION_COST = 0.75;
       const STANDARD_PRICE = 9.99;
-      const PROMO_PRICE = 4.99;
+      const PROMO_DISCOUNT = 2.0;
+      const PROMO_PRICE = Number((STANDARD_PRICE - PROMO_DISCOUNT).toFixed(2));
       let currentPrice = STANDARD_PRICE;
       let promoActive = false;
+      let promoPending = false;
       let extensionUnits = 0;
-      let facebookSdkPromise = null;
 
       function formatPrice(value) {
         return value.toFixed(2).replace(".", ",") + " zł";
+      }
+
+      function formatDateTime(value) {
+        if (!value) {
+          return "—";
+        }
+        const [datePart, timePart] = value.split("T");
+        if (!timePart) {
+          return value;
+        }
+        return `${datePart} ${timePart}`;
       }
 
       function calculateTotalPrice() {
@@ -634,7 +639,7 @@
         priceValue.textContent = formatPrice(totalPriceNumber);
         totalPriceDisplay.textContent = formatPrice(totalPriceNumber);
         priceNote.textContent = promoActive
-          ? "po potwierdzeniu polubienia naszego profilu"
+          ? "po odwiedzeniu naszego profilu na Facebooku"
           : "za przygotowanie kampanii";
       }
 
@@ -657,138 +662,47 @@
 
       function activatePromo() {
         promoActive = true;
+        promoPending = false;
         updatePricingDisplays();
         promoButton.disabled = true;
-        promoButton.textContent = "Polubienie potwierdzone – rabat aktywny";
+        promoButton.textContent = "Rabat Facebook aktywny";
         if (currentStep === steps.length - 1) {
           populateSummary();
         }
       }
 
-      function loadFacebookSdk() {
-        if (typeof FB !== "undefined") {
-          return Promise.resolve(FB);
-        }
-        if (!facebookSdkPromise) {
-          facebookSdkPromise = new Promise((resolve, reject) => {
-            if (!hasFacebookConfig) {
-              reject(
-                new Error(
-                  "Skonfiguruj identyfikatory aplikacji i strony Facebooka w atrybutach data-fb-app-id oraz data-fb-page-id."
-                )
-              );
-              return;
-            }
-            window.fbAsyncInit = function () {
-              try {
-                FB.init({
-                  appId: fbAppId,
-                  cookie: true,
-                  xfbml: false,
-                  version: "v17.0",
-                });
-                resolve(FB);
-              } catch (initializationError) {
-                reject(initializationError);
-              }
-            };
-            const script = document.createElement("script");
-            script.src = `https://connect.facebook.net/${fbLocale}/sdk.js`;
-            script.async = true;
-            script.defer = true;
-            script.onerror = () => reject(new Error("Nie udało się załadować SDK Facebooka."));
-            document.body.appendChild(script);
-          });
-        }
-        return facebookSdkPromise;
-      }
-
-      function ensureFacebookLogin(FBInstance) {
-        return new Promise((resolve, reject) => {
-          FBInstance.getLoginStatus((loginStatus) => {
-            if (loginStatus.status === "connected") {
-              resolve(loginStatus);
-              return;
-            }
-            FBInstance.login(
-              (response) => {
-                if (response.authResponse) {
-                  resolve(response);
-                } else {
-                  reject(
-                    new Error(
-                      "Aby skorzystać ze zniżki, zaloguj się na Facebooku i przyznaj uprawnienie do odczytu polubionych stron."
-                    )
-                  );
-                }
-              },
-              { scope: "email,user_likes", return_scopes: true }
-            );
-          });
-        });
-      }
-
-      function verifyFacebookLike(FBInstance) {
-        return new Promise((resolve, reject) => {
-          FBInstance.api(`/me/likes/${fbPageId}`, "GET", (response) => {
-            if (!response) {
-              reject(new Error("Nie udało się zweryfikować polubienia. Spróbuj ponownie."));
-              return;
-            }
-            if (response.error) {
-              if (response.error.code === 200) {
-                reject(
-                  new Error(
-                    "Brak uprawnień do sprawdzenia polubionych stron. Przy ponownym logowaniu zaznacz zgodę na udostępnienie polubień."
-                  )
-                );
-                return;
-              }
-              reject(new Error(response.error.message || "Facebook zwrócił błąd podczas weryfikacji polubienia."));
-              return;
-            }
-            const liked = Array.isArray(response.data) && response.data.length > 0;
-            resolve(liked);
-          });
-        });
-      }
-
-      async function handlePromoClick() {
-        if (promoActive) {
+      function handlePromoClick() {
+        if (promoActive || promoPending) {
           return;
         }
         if (!hasFacebookConfig) {
           setPromoFeedback(
-            "Skonfiguruj atrybuty data-fb-app-id oraz data-fb-page-id na elemencie <body>, aby uruchomić weryfikację.",
+            "Skonfiguruj adres profilu Facebook w atrybucie data-fb-profile-url na elemencie <body>.",
             "error"
           );
           return;
         }
-        promoButton.disabled = true;
-        promoButton.textContent = "Weryfikujemy polubienie...";
-        setPromoFeedback("Trwa weryfikacja polubienia profilu...", "info");
-
-        try {
-          const FBInstance = await loadFacebookSdk();
-          await ensureFacebookLogin(FBInstance);
-          const liked = await verifyFacebookLike(FBInstance);
-          if (!liked) {
-            throw new Error(
-              "Nie znaleźliśmy polubienia tej strony. Polub profil na Facebooku i spróbuj ponownie po kilku minutach."
-            );
-          }
-          activatePromo();
-          setPromoFeedback("Polubienie potwierdzone! Rabat 4,99 zł został naliczony.", "success");
-        } catch (error) {
-          setPromoFeedback(error.message || "Nie udało się zweryfikować polubienia.", "error");
-          if (typeof FB === "undefined") {
-            facebookSdkPromise = null;
-          }
-          if (!promoActive) {
-            promoButton.disabled = false;
-            promoButton.textContent = promoButtonDefaultText;
-          }
+        const newTab = window.open(fbProfileUrl, "_blank", "noopener");
+        if (!newTab) {
+          setPromoFeedback(
+            "Pozwól na otwieranie nowych kart w przeglądarce, aby dokończyć aktywację rabatu.",
+            "error"
+          );
+          return;
         }
+        promoPending = true;
+        promoButton.disabled = true;
+        promoButton.textContent = "Odwiedź profil i wróć, aby aktywować rabat";
+        setPromoFeedback("Po powrocie na tę kartę naliczymy rabat 2 zł.", "info");
+        newTab.focus();
+      }
+
+      function handleWindowFocus() {
+        if (!promoPending || promoActive) {
+          return;
+        }
+        activatePromo();
+        setPromoFeedback("Dziękujemy za odwiedzenie profilu! Rabat 2 zł został naliczony.", "success");
       }
 
       function toggleFields(type) {
@@ -826,10 +740,10 @@
         const extensionUnitsValue = Number(formData.get("extensionUnits") || "0");
         const extensionCostValue = Number((extensionUnitsValue * EXTENSION_COST).toFixed(2));
         const totalValidity = BASE_VALIDITY_DAYS + extensionUnitsValue * EXTENSION_DAYS;
+        const startDate = formData.get("campaignStart");
         const map = [
-          { label: "Osoba kontaktowa", value: formData.get("contactName") },
           { label: "E-mail", value: formData.get("email") },
-          { label: "Telefon", value: formData.get("phone") || "—" },
+          { label: "Start kampanii", value: formatDateTime(startDate) },
           { label: "Limit skanów", value: formData.get("maxScans") },
           {
             label: "Typ prezentacji",
@@ -871,7 +785,7 @@
           .join("");
 
         const basePriceLabel = promoActive
-          ? `Cena bazowa po rabacie Facebook: ${formatPrice(PROMO_PRICE)}`
+          ? `Cena bazowa po odwiedzeniu profilu Facebook: ${formatPrice(PROMO_PRICE)}`
           : `Cena bazowa: ${formatPrice(STANDARD_PRICE)}`;
         const extensionLabel =
           extensionUnitsValue > 0 ? `, dopłata za PLUS-y: ${formatPrice(extensionCostValue)}` : "";
@@ -896,6 +810,7 @@
       });
 
       promoButton.addEventListener("click", handlePromoClick);
+      window.addEventListener("focus", handleWindowFocus);
 
       nextButton.addEventListener("click", () => {
         if (!validateStep(currentStep)) {
@@ -956,8 +871,7 @@
         const extensionUnitsValue = Number(formData.get("extensionUnits") || "0");
         const payload = {
           email: formData.get("email"),
-          contactName: formData.get("contactName"),
-          phone: formData.get("phone") || undefined,
+          campaignStart: formData.get("campaignStart") || undefined,
           maxScans: Number(formData.get("maxScans")),
           promotionType: formData.get("promotionType"),
           promoCode: formData.get("promoCode") || undefined,
@@ -1045,7 +959,7 @@
       } else {
         promoButton.disabled = true;
         setPromoFeedback(
-          "Skonfiguruj atrybuty data-fb-app-id oraz data-fb-page-id na elemencie <body>, aby uruchomić weryfikację.",
+          "Skonfiguruj adres profilu Facebook w atrybucie data-fb-profile-url na elemencie <body>.",
           "error"
         );
       }
